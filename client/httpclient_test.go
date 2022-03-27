@@ -2,8 +2,9 @@ package client
 
 import (
 	"fmt"
-	"github.com/sniperLx/task-agent/common"
 	"testing"
+
+	"octopus/task-agent/common"
 )
 
 func TestSubmitTask(t *testing.T) {

@@ -1,14 +1,17 @@
 package main
 
 import (
-	"github.com/sirupsen/logrus"
-	"github.com/sniperLx/task-agent/api"
-	"github.com/sniperLx/task-agent/api/task"
-	"github.com/sniperLx/task-agent/common"
-	engine "github.com/sniperLx/task-agent/engine"
-	"github.com/sniperLx/task-agent/register"
 	"os"
+	"os/signal"
+	"syscall"
 	"time"
+
+	"octopus/task-agent/api"
+	"octopus/task-agent/common"
+	"octopus/task-agent/engine"
+	"octopus/task-agent/register"
+
+	"github.com/sirupsen/logrus"
 )
 
 //./task-agent -kafka-brokers 192.168.0.107:9092 -kafka-heartbeat-topic test -kafka-result-topic result -debug true
@@ -22,37 +25,28 @@ func main() {
 		logrus.SetLevel(logrus.DebugLevel)
 	}
 
+	//start heartbeat register
+	heartbeatRegister := register.NewKafkaRegister()
+	err := heartbeatRegister.Init()
+	if err != nil {
+		logrus.Errorf("will exit, as start heartbeat register failed: %s", err)
+		return
+	}
+
+	go heartbeatRegister.SendHeartbeatPeriodic(60 * time.Second)
+
+	sigChan := make(chan os.Signal)
+	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
+
 	//启动执行引擎
-	engineWait := make(chan error)
 	engine.InitTaskEngine()
-	go engine.StartEngine(engineWait)
+	go engine.StartEngine(sigChan)
 
 	//启动api server
 	server := api.NewServer(common.ServerConfig)
 	server.Accept(common.ServerConfig)
 	registerRoutes(server)
-	serveAPIWait := make(chan error)
-	go server.ServeAPI(serveAPIWait)
-
-	//start heartbeat register
-	heartbeatRegister := register.NewKafkaRegister()
-	err := heartbeatRegister.Init()
-	if err != nil {
-		logrus.Panicf("start heartbeat register failed: %v", err)
-		//todo send signal to stop api server and task engine
-	}
-	go heartbeatRegister.SendHeartbeatPeriodic(60 * time.Second)
-
-	select {
-	case serverErr := <-serveAPIWait:
-		if serverErr != nil {
-			logrus.Errorf("agent server exit due to error: %v", serverErr)
-		}
-	case engineErr := <-engineWait:
-		if engineErr != nil {
-			logrus.Errorf("agent engine exit due to error: %v", engineErr)
-		}
-	}
+	server.ServeAPI()
 }
 
 func initLog() {
@@ -64,7 +58,7 @@ func initLog() {
 
 func registerRoutes(server *api.Server) {
 	routers := []api.Router{
-		task.NewRouter(),
+		api.NewRouter(),
 	}
 
 	server.InitRouter(routers...)

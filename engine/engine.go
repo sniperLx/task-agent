@@ -3,8 +3,11 @@ package engine
 import (
 	"encoding/json"
 	"fmt"
+	"os"
+
+	"octopus/task-agent/common"
+
 	"github.com/sirupsen/logrus"
-	"github.com/sniperLx/task-agent/common"
 )
 
 var execEngine *taskEngine
@@ -50,7 +53,7 @@ func InitTaskEngine() *taskEngine {
 }
 
 //启动执行引擎
-func StartEngine(errChan chan error) {
+func StartEngine(sigChan chan os.Signal) {
 	taskChan := make(chan Task)
 	retChan := make(chan Task)
 
@@ -64,12 +67,9 @@ func StartEngine(errChan chan error) {
 		case ret := <-retChan:
 			go reportRetToKafka(ret)
 			go reportRetToStdout(ret)
-		case status := <-errChan:
-			//todo 收到退出信号
-			if status != nil {
-				errChan <- fmt.Errorf("engine exit")
-				break;
-			}
+		case status := <-sigChan:
+			logrus.Infof("task engine exit after receive signal %v", status)
+			break;
 		}
 	}
 }
@@ -120,9 +120,9 @@ func pollTask(taskChan chan Task) {
 	for {
 		select {
 		case val := <-execEngine.taskEventChan:
-			fmt.Printf("value: %v\n", val)
+			logrus.Debugf("value: %v", val)
 			if val == DataAdd {
-				fmt.Printf("taskQ size: %d\n", taskQ.Size())
+				logrus.Debugf("taskQ size: %d", taskQ.Size())
 				if ele := taskQ.Poll(); ele != nil {
 					logrus.Debugf("get task %v from task Queue: %v", ele.GetId(), ele)
 					taskChan <- ele
@@ -138,7 +138,7 @@ func do(task Task) {
 	switch v := task.(type) {
 	case *CmdTask:
 		logrus.Debugf("start to do task: %v", task.GetId())
-		ret := task.(*CmdTask).Do(common.TASK_TIMEOUT)
+		ret := task.(*CmdTask).Do(common.TaskTimeout)
 		if ret != nil {
 			logrus.Debugf("result is: %v", ret)
 			ReportRet(ret)

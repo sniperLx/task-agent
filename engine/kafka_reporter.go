@@ -1,11 +1,13 @@
 package engine
 
 import (
-	"github.com/Shopify/sarama"
-	"github.com/sirupsen/logrus"
-	"github.com/sniperLx/task-agent/common"
 	"strings"
 	"time"
+
+	"octopus/task-agent/common"
+
+	"github.com/Shopify/sarama"
+	"github.com/sirupsen/logrus"
 )
 
 type RetTank interface {
@@ -14,7 +16,7 @@ type RetTank interface {
 }
 
 type kafkaTank struct {
-	brokers     []string
+	brokers  []string
 	topic    string
 	producer sarama.SyncProducer
 }

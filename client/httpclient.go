@@ -4,11 +4,13 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"github.com/sirupsen/logrus"
-	"github.com/sniperLx/task-agent/common"
 	"net"
 	"net/http"
 	"time"
+
+	"octopus/task-agent/common"
+
+	"github.com/sirupsen/logrus"
 )
 
 //https://golang.org/pkg/net/http/

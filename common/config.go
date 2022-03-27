@@ -4,34 +4,42 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"github.com/sirupsen/logrus"
 	"log"
 	"net"
 	"os"
 	"strings"
 	"time"
+
+	"github.com/sirupsen/logrus"
 )
 
 const (
-	LOCAL_IP     = "LOCAL_IP"
-	TASK_TIMEOUT = 10 * time.Second
+	LocalHostIp = "LOCAL_IP"
+	TaskTimeout = 10 * time.Second
 )
 
 var (
-	Debug = flag.Bool("debug", false, "set debug model to print more log, default value is false")
-	Host = flag.String("host", "0.0.0.0", "host ip used by agent to monitor incoming request, and use 0.0.0.0 by default")
-	LocalIp = flag.String("local-ip", os.Getenv("LOCAL_IP"), "ip of current node used to communicate with other nodes and report heartbeat")
-	KafkaBrokers = flag.String("kafka-brokers", os.Getenv("KAFKA_PEERS"), "The Kafka brokers to connect to store task result, as a comma separated list")
-	KafkaTopicForResult = flag.String("kafka-result-topic", os.Getenv("KAFKA_RESULT_TOPIC"), "The Kafka topic to store the result of all tasks")
-	KafkaTopicForRegister = flag.String("kafka-heartbeat-topic", os.Getenv("KAFKA_HEARTBEAT_TOPIC"), "The Kafka topic to store ip info of all registered nodes")
-	Port = flag.Int("port", 12357, "port used by agent to monitor incoming request, default value is 12357")
+	Debug = flag.Bool("debug", false,
+		"set debug model to print more log, default value is false")
+	Host = flag.String("host", "0.0.0.0",
+		"host ip used by agent to monitor incoming request, and use 0.0.0.0 by default")
+	LocalIp = flag.String("local-ip", os.Getenv("LOCAL_IP"),
+		"ip of current node used to communicate with other nodes and report heartbeat")
+	KafkaBrokers = flag.String("kafka-brokers", os.Getenv("KAFKA_PEERS"),
+		"The Kafka brokers to connect to store task result, as a comma separated list")
+	KafkaTopicForResult = flag.String("kafka-result-topic", os.Getenv("KAFKA_RESULT_TOPIC"),
+		"The Kafka topic to store the result of all tasks")
+	KafkaTopicForRegister = flag.String("kafka-heartbeat-topic", os.Getenv("KAFKA_HEARTBEAT_TOPIC"),
+		"The Kafka topic to store ip info of all registered nodes")
+	Port = flag.Int("port", 12357,
+		"port used by agent to monitor incoming request, default value is 12357")
 	ServerConfig *Config
 )
 
 type Config struct {
-	Debug bool
-	Host  string
-	Port  int
+	Debug   bool
+	Host    string
+	Port    int
 	LocalIp string
 }
 
@@ -55,7 +63,7 @@ func ParseAndInitCmdParams() {
 }
 
 func GetLocalIp() (string, error) {
-	localIp := os.Getenv(LOCAL_IP)
+	localIp := os.Getenv(LocalHostIp)
 	if localIp != "" {
 		return localIp, nil
 	}
@@ -71,7 +79,7 @@ func GetLocalIp() (string, error) {
 	localAddr := conn.LocalAddr().(*net.UDPAddr)
 	localIp = localAddr.IP.String()
 	logrus.Debugf("get local ip: %v", localIp)
-	_ = os.Setenv(LOCAL_IP, localIp)
+	_ = os.Setenv(LocalHostIp, localIp)
 	return localIp, nil
 }
 

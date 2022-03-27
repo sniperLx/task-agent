@@ -2,12 +2,13 @@ package register
 
 import (
 	"fmt"
-	"github.com/sniperLx/task-agent/common"
 	"testing"
+
+	"octopus/task-agent/common"
 )
 
 func Test_externalIp(t *testing.T) {
-	ips, err := getAllExternalIps()
+	ips, err := common.GetAllExternalIps()
 	if err != nil {
 		fmt.Printf("error: %v\n", err)
 	}
@@ -19,7 +20,7 @@ func Test_getLocalIp(t *testing.T) {
 	mockIp := "192.168.0.1:9092"
 	common.KafkaBrokers = &mockIp
 
-	localIp, err := getLocalIp()
+	localIp, err := common.GetLocalIp()
 	if err != nil {
 		fmt.Printf("err: %v", err)
 	}

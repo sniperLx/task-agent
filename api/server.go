@@ -2,10 +2,11 @@ package api
 
 import (
 	"fmt"
-	"github.com/sniperLx/task-agent/common"
 	"net"
 	"net/http"
 	"sync"
+
+	"octopus/task-agent/common"
 
 	"github.com/gorilla/mux"
 	"github.com/sirupsen/logrus"
@@ -89,12 +90,11 @@ func (s *Server) createMux() *mux.Router {
 	return m
 }
 
-func (s *Server) ServeAPI(waitChan chan error) {
+func (s *Server) ServeAPI() {
 	s.server.srv.Handler = s.routerSwapper
 	logrus.Infof("API listen on %s", s.server.l.Addr())
 	if err := s.server.Serve(); err != nil {
-		err = nil
-		waitChan <- err
+		logrus.Errorf("start api server failed: %s", err)
 	}
 }
 

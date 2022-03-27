@@ -2,11 +2,13 @@ package engine
 
 import (
 	"fmt"
-	"github.com/sirupsen/logrus"
-	httpclient "github.com/sniperLx/task-agent/client"
-	"github.com/sniperLx/task-agent/common"
 	"os/exec"
 	"time"
+
+	httpclient "octopus/task-agent/client"
+	"octopus/task-agent/common"
+
+	"github.com/sirupsen/logrus"
 )
 
 type Task interface {
@@ -122,7 +124,9 @@ func (ct *CmdTask) Schedule() {
 			Cmd:   ct.Cmd,
 			Type:  ct.Type,
 		}
-		_ = httpclient.SubmitTask(getAddr(node), request)
+		if err := httpclient.SubmitTask(getAddr(node), request); err != nil {
+			logrus.Warnf("submit task %s failed: %s", ct.Id, err)
+		}
 		return
 	}
 	idx := size / 2

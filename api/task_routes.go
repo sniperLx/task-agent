@@ -1,14 +1,16 @@
-package task
+package api
 
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/google/uuid"
-	"github.com/sirupsen/logrus"
-	"github.com/sniperLx/task-agent/common"
-	"github.com/sniperLx/task-agent/engine"
 	"net"
 	"net/http"
+
+	"octopus/task-agent/common"
+	"octopus/task-agent/engine"
+
+	"github.com/google/uuid"
+	"github.com/sirupsen/logrus"
 )
 
 func (tr *taskRouter) submitCmdTask(write http.ResponseWriter, request *http.Request) {

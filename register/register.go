@@ -1,11 +1,13 @@
 package register
 
 import (
-	"github.com/Shopify/sarama"
-	"github.com/sirupsen/logrus"
-	"github.com/sniperLx/task-agent/common"
 	"strings"
 	"time"
+
+	"octopus/task-agent/common"
+
+	"github.com/Shopify/sarama"
+	"github.com/sirupsen/logrus"
 )
 
 type HeartBeatRegister interface {
