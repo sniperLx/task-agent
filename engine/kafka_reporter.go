@@ -7,7 +7,6 @@ import (
 	"octopus/task-agent/common"
 
 	"github.com/Shopify/sarama"
-	"github.com/sirupsen/logrus"
 )
 
 type RetTank interface {
@@ -37,7 +36,7 @@ func (kc *kafkaTank) Init() error {
 	kc.brokers = brokers
 	kc.topic = *common.KafkaTopicForResult
 	kc.producer = producer
-	logrus.Debugf("kafkaTank info: %v", kc)
+	logger.Debugf("kafkaTank info: %v", kc)
 	return nil
 }
 

@@ -4,36 +4,31 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
-	"time"
 
+	"github.com/sirupsen/logrus"
 	"octopus/task-agent/api"
 	"octopus/task-agent/common"
 	"octopus/task-agent/engine"
+	logg "octopus/task-agent/log"
 	"octopus/task-agent/register"
-
-	"github.com/sirupsen/logrus"
 )
+
+var logger = logg.InitLogger()
 
 //./task-agent -kafka-brokers 192.168.0.107:9092 -kafka-heartbeat-topic test -kafka-result-topic result -debug true
 // -local-ip 192.168.0.107
 func main() {
-	initLog()
-
 	//parse command line params
 	common.ParseAndInitCmdParams()
 	if *common.Debug {
-		logrus.SetLevel(logrus.DebugLevel)
+		logger.SetLevel(logrus.DebugLevel)
 	}
 
 	//start heartbeat register
-	heartbeatRegister := register.NewKafkaRegister()
-	err := heartbeatRegister.Init()
-	if err != nil {
-		logrus.Errorf("will exit, as start heartbeat register failed: %s", err)
+	if err := register.StartDefaultRegister(); err != nil {
+		logger.Errorf("will exit, as start heartbeat failed: %s", err)
 		return
 	}
-
-	go heartbeatRegister.SendHeartbeatPeriodic(60 * time.Second)
 
 	sigChan := make(chan os.Signal)
 	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
@@ -44,22 +39,5 @@ func main() {
 
 	//启动api server
 	server := api.NewServer(common.ServerConfig)
-	server.Accept(common.ServerConfig)
-	registerRoutes(server)
 	server.ServeAPI()
-}
-
-func initLog() {
-	logrus.SetFormatter(&logrus.JSONFormatter{})
-	logrus.SetOutput(os.Stdout)
-	logrus.SetLevel(logrus.WarnLevel)
-	logrus.SetReportCaller(true)
-}
-
-func registerRoutes(server *api.Server) {
-	routers := []api.Router{
-		api.NewRouter(),
-	}
-
-	server.InitRouter(routers...)
 }

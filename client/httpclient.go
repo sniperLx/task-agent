@@ -9,9 +9,10 @@ import (
 	"time"
 
 	"octopus/task-agent/common"
-
-	"github.com/sirupsen/logrus"
+	"octopus/task-agent/log"
 )
+
+var logger = log.InitLogger()
 
 //https://golang.org/pkg/net/http/
 //submit task to target by call rest api
@@ -40,7 +41,7 @@ func SubmitTask(addr string, request *common.CmdRequest) error {
 
 	buff := make([]byte, resp.ContentLength)
 	_, _ = resp.Body.Read(buff)
-	logrus.Debug(fmt.Sprintf("%v", string(buff)))
+	logger.Debug(fmt.Sprintf("%v", string(buff)))
 	return nil
 }
 
@@ -49,7 +50,7 @@ func CheckHealth(addr string) error {
 	defer client.CloseIdleConnections()
 
 	url := fmt.Sprintf("http://%s/checkHealth", addr)
-	logrus.Debugf("will call %v to check health", url)
+	logger.Debugf("will call %v to check health", url)
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		return err

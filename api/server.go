@@ -7,12 +7,14 @@ import (
 	"sync"
 
 	"octopus/task-agent/common"
+	"octopus/task-agent/log"
 
 	"github.com/gorilla/mux"
-	"github.com/sirupsen/logrus"
 )
 
 const versionMatcher = "/v{version:[0-9.]+}"
+
+var logger = log.InitLogger()
 
 type Server struct {
 	cfg           *common.Config
@@ -45,7 +47,7 @@ func (s *HTTPServer) Serve() error {
 }
 
 func NewServer(config *common.Config) *Server {
-	logrus.Debugf("server config: %v", config)
+	logger.Debugf("server config: %v", config)
 	common.ServerConfig = config
 	return &Server{cfg: config}
 }
@@ -54,11 +56,11 @@ func (s *Server) Accept(cfg *common.Config) {
 	addr := fmt.Sprintf("%s:%d", cfg.Host, cfg.Port)
 	listener, err := net.Listen("tcp", addr)
 	if err != nil {
-		logrus.Panicf("create Listener failed: %v", err)
+		logger.Panicf("create Listener failed: %v", err)
 	}
 
 	httpServer := &HTTPServer{
-		srv: &http.Server{Addr: addr,},
+		srv: &http.Server{Addr: addr},
 		l:   listener,
 	}
 	s.server = httpServer
@@ -76,12 +78,12 @@ func (s *Server) InitRouter(routers ...Router) {
 func (s *Server) createMux() *mux.Router {
 	m := mux.NewRouter()
 
-	logrus.Debug("Registering routers")
+	logger.Debug("Registering routers")
 	for _, apiRouter := range s.routers {
 		for _, r := range apiRouter.Routes() {
 			f := r.Handler()
 
-			logrus.Debugf("Registering %s, %s", r.Method(), r.Path())
+			logger.Debugf("Registering %s, %s", r.Method(), r.Path())
 			m.Path(versionMatcher + r.Path()).Methods(r.Method()).Handler(f)
 			m.Path(r.Path()).Methods(r.Method()).Handler(f)
 		}
@@ -91,13 +93,24 @@ func (s *Server) createMux() *mux.Router {
 }
 
 func (s *Server) ServeAPI() {
+	s.Accept(common.ServerConfig)
+	s.registerRoutes()
+
 	s.server.srv.Handler = s.routerSwapper
-	logrus.Infof("API listen on %s", s.server.l.Addr())
+	logger.Infof("API listen on %s", s.server.l.Addr())
 	if err := s.server.Serve(); err != nil {
-		logrus.Errorf("start api server failed: %s", err)
+		logger.Errorf("start api server failed: %s", err)
 	}
 }
 
 func (s *Server) Close() {
 
+}
+
+func (s *Server) registerRoutes() {
+	routers := []Router{
+		NewRouter(),
+	}
+
+	s.InitRouter(routers...)
 }

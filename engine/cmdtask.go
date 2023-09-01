@@ -7,9 +7,10 @@ import (
 
 	httpclient "octopus/task-agent/client"
 	"octopus/task-agent/common"
-
-	"github.com/sirupsen/logrus"
+	"octopus/task-agent/log"
 )
+
+var logger = log.InitLogger()
 
 type Task interface {
 	GetId() string
@@ -53,7 +54,7 @@ func (ct *CmdTask) Do(timeout time.Duration) Task {
 	localIp := *common.LocalIp
 
 	go func() {
-		logrus.Debugf("will do this task %v locally: %v", ct.GetId(), ct.IsTarget)
+		logger.Debugf("will do this task %v locally: %v", ct.GetId(), ct.IsTarget)
 		//调度任务到其他节点
 		ct.Schedule()
 		if ct.IsTarget {
@@ -67,7 +68,7 @@ func (ct *CmdTask) Do(timeout time.Duration) Task {
 	case ret := <-waitRetChan:
 		return ret
 	case <-time.After(timeout):
-		logrus.Errorf("timeout to exec task %s at %s: %s", ct.GetId(), localIp, ct.Cmd)
+		logger.Errorf("timeout to exec task %s at %s: %s", ct.GetId(), localIp, ct.Cmd)
 		return &CmdResult{
 			Name:     ct.Name,
 			Id:       ct.Id,
@@ -79,14 +80,14 @@ func (ct *CmdTask) Do(timeout time.Duration) Task {
 }
 
 func (ct *CmdTask) localDo(retChan chan Task) {
-	logrus.Debugf("start to exec cmd: %v", ct.Cmd)
+	logger.Debugf("start to exec cmd: %v", ct.Cmd)
 	cmd := exec.Command("/bin/sh", "-c", ct.Cmd)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
-		logrus.Errorf("task %s exec failed: %v", ct.GetId(), err)
+		logger.Errorf("task %s exec failed: %v", ct.GetId(), err)
 		return
 	}
-	logrus.Debugf("task %s output: %s", ct.GetId(), out)
+	logger.Debugf("task %s output: %s", ct.GetId(), out)
 
 	localIp := *common.LocalIp
 	ret := &CmdResult{
@@ -125,7 +126,7 @@ func (ct *CmdTask) Schedule() {
 			Type:  ct.Type,
 		}
 		if err := httpclient.SubmitTask(getAddr(node), request); err != nil {
-			logrus.Warnf("submit task %s failed: %s", ct.Id, err)
+			logger.Warnf("submit task %s failed: %s", ct.Id, err)
 		}
 		return
 	}
@@ -147,13 +148,13 @@ func (ct *CmdTask) Schedule() {
 	if node1, err := selectNode(subTask1.Nodes, localIp); err == nil {
 		_ = httpclient.SubmitTask(getAddr(node1), subTask1)
 	} else {
-		logrus.Errorf("%v", err)
+		logger.Errorf("%v", err)
 	}
 
 	if node2, err := selectNode(subTask2.Nodes, localIp); err == nil {
 		_ = httpclient.SubmitTask(getAddr(node2), subTask2)
 	} else {
-		logrus.Errorf("%v", err)
+		logger.Errorf("%v", err)
 	}
 }
 

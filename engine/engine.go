@@ -6,8 +6,6 @@ import (
 	"os"
 
 	"octopus/task-agent/common"
-
-	"github.com/sirupsen/logrus"
 )
 
 var execEngine *taskEngine
@@ -28,8 +26,8 @@ type taskEngine struct {
 
 	taskEventChan chan Event
 	retEventChan  chan Event
-
-	kafkaTank RetTank
+	kafkaTank     RetTank
+	status        bool
 }
 
 func InitTaskEngine() *taskEngine {
@@ -46,7 +44,7 @@ func InitTaskEngine() *taskEngine {
 
 	err := execEngine.kafkaTank.Init()
 	if err != nil {
-		logrus.Panicf("init kafka producer failed: %v", err)
+		logger.Panicf("init kafka producer failed: %v", err)
 	}
 
 	return execEngine
@@ -54,36 +52,18 @@ func InitTaskEngine() *taskEngine {
 
 //启动执行引擎
 func StartEngine(sigChan chan os.Signal) {
-	taskChan := make(chan Task)
-	retChan := make(chan Task)
-
-	go pollTask(taskChan)
-	go pollRet(retChan)
-
-	for {
-		select {
-		case task := <-taskChan:
-			go do(task)
-		case ret := <-retChan:
-			go reportRetToKafka(ret)
-			go reportRetToStdout(ret)
-		case status := <-sigChan:
-			logrus.Infof("task engine exit after receive signal %v", status)
-			break;
-		}
-	}
+	go pollTask(sigChan)
+	pollRet(sigChan)
 }
 
 func SubmitTask(task Task) {
 	execEngine.taskQueue.Offer(task)
-	emitDataAddEvent(execEngine.taskEventChan)
-	logrus.Debugf("submit task %v success", task.GetId())
+	logger.Debugf("submit task %v success", task.GetId())
 }
 
 func ReportRet(ret Task) {
 	execEngine.retQueue.Offer(ret)
-	emitDataAddEvent(execEngine.retEventChan)
-	logrus.Debugf("report result of task %v success", ret.GetId())
+	logger.Debugf("report result of task %v success", ret.GetId())
 }
 
 func emitDataAddEvent(eventChan chan Event) {
@@ -98,37 +78,32 @@ func emitDataRemoveEvent(eventChan chan Event) {
 	}()
 }
 
-func pollRet(retChan chan Task) {
+func pollRet(sigChan chan os.Signal) {
 	retQ := execEngine.retQueue
-	for {
+	for ret := retQ.Poll(); ; {
+		logger.Debugf("get ret of task %v from ret Queue: %v", ret.GetId(), ret)
+		go reportRetToKafka(ret)
+		go reportRetToStdout(ret)
 		select {
-		case val := <-execEngine.retEventChan:
-			if val == DataAdd {
-				if ele := retQ.Poll(); ele != nil {
-					logrus.Debugf("get ret of task %v from ret Queue: %v", ele.GetId(), ele)
-					retChan <- ele
-					emitDataRemoveEvent(execEngine.retEventChan)
-				}
-			}
+		case status := <-sigChan:
+			logger.Infof("stop polling task result after receive signal %v", status)
+			break
 		}
 	}
 }
 
 //监听任务队列，取出任务交给一个协程执行
-func pollTask(taskChan chan Task) {
+func pollTask(sigChan chan os.Signal) {
 	taskQ := execEngine.taskQueue
-	for {
+	for task := taskQ.Poll(); ; {
+		logger.Debugf("get task %v from task Queue with len %d: %v", task.GetId(), taskQ.Size(), task)
+		//todo some task may dont support running in parallel
+		go do(task)
 		select {
-		case val := <-execEngine.taskEventChan:
-			logrus.Debugf("value: %v", val)
-			if val == DataAdd {
-				logrus.Debugf("taskQ size: %d", taskQ.Size())
-				if ele := taskQ.Poll(); ele != nil {
-					logrus.Debugf("get task %v from task Queue: %v", ele.GetId(), ele)
-					taskChan <- ele
-					emitDataRemoveEvent(execEngine.taskEventChan)
-				}
-			}
+		case status := <-sigChan:
+			//todo finish left tasks in queue and exit
+			logger.Infof("stop polling task after receive signal %v", status)
+			break
 		}
 	}
 }
@@ -137,14 +112,14 @@ func do(task Task) {
 	//协程执行完后，将结果存放到结果队列
 	switch v := task.(type) {
 	case *CmdTask:
-		logrus.Debugf("start to do task: %v", task.GetId())
+		logger.Debugf("start to do task: %v", task.GetId())
 		ret := task.(*CmdTask).Do(common.TaskTimeout)
 		if ret != nil {
-			logrus.Debugf("result is: %v", ret)
+			logger.Debugf("result is: %v", ret)
 			ReportRet(ret)
 		}
 	default:
-		logrus.Errorf("this task type is not supported yet: %v", v)
+		logger.Errorf("this task type is not supported yet: %v", v)
 	}
 }
 
@@ -153,18 +128,18 @@ func reportRetToKafka(ret Task) {
 	//监听结果队列，上报协程会将结果写到对应的kafka topic中
 	bytes, err := json.Marshal(ret)
 	if err != nil {
-		logrus.Errorf("send msg failed: %v", err)
+		logger.Errorf("send msg failed: %v", err)
 		return
 	}
 	msg := string(bytes)
-	logrus.Debug("sending message: %v", msg)
+	logger.Debug("sending message: %v", msg)
 	err = execEngine.kafkaTank.IssueRet(msg)
 	if err != nil {
-		logrus.Errorf("failed to send ret of task %s: %v", ret.GetId(), err)
+		logger.Errorf("failed to send ret of task %s: %v", ret.GetId(), err)
 	}
 }
 
 func reportRetToStdout(ret Task) {
-	//logrus.Infof("result of %s is %s", ret.GetId(), ret.(*CmdResult).Ret)
+	//logger.Infof("result of %s is %s", ret.GetId(), ret.(*CmdResult).Ret)
 	fmt.Printf("ret of task %s is: %v\n", ret.GetId(), ret)
 }

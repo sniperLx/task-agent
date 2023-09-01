@@ -17,24 +17,26 @@ type Queue interface {
 }
 
 type blockingTaskQueue struct {
-	queue  []Task
-	size   int
-	rwLock sync.RWMutex
+	queue    []Task
+	size     int
+	rwLock   sync.RWMutex
+	waitChan chan bool
 }
 
 const initialCapacity = 16
 
 func NewBlockingQueue() *blockingTaskQueue {
 	return &blockingTaskQueue{
-		queue:  make([]Task, 0, initialCapacity),
-		size:   0,
-		rwLock: sync.RWMutex{},
+		queue:    make([]Task, 0, initialCapacity),
+		size:     0,
+		rwLock:   sync.RWMutex{},
+		waitChan: make(chan bool),
 	}
 }
 
 func (bq *blockingTaskQueue) Poll() Task {
 	if len(bq.queue) == 0 {
-		return nil
+		<-bq.waitChan
 	}
 
 	bq.rwLock.Lock()
@@ -51,6 +53,7 @@ func (bq *blockingTaskQueue) Offer(ele Task) {
 	bq.queue = append(bq.queue, ele)
 	bq.size++
 	bq.rwLock.Unlock()
+	bq.waitChan <- true
 }
 
 func (bq *blockingTaskQueue) Size() int {
